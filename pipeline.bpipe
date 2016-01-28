@@ -1,6 +1,7 @@
 
 SCRIPT = "/mnt/projects/lich/dream_challenge/rollingcircle/INCSeq"
-ALIGNER = "graphmap"
+//ALIGNER = "graphmap"
+ALIGNER = "blastn"
 
 set_global_var = {
   doc title: "Set global branch variables"

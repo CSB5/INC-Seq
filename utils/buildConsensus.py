@@ -241,21 +241,28 @@ def consensus_blastn(record, alnFile, copy_num_thre, len_diff_thre, tmp_folder, 
             delta = 1
             consensus_p = consensus
             iteration = 0
+            sys.stderr.write("Iteratively improving consensus\n")
+            tmpRef_iter = tmpname + '.con.iter.fa'
+            tmpRef_iter_next = tmpname + '.con.iter.n.fa'
+            tmpRef_iter_m5 = tmpname + '.con.iter.m5'
+
             while (delta>0.001 and consensus and iteration<=10):
+                sys.stderr.write("Iteration: %d\n" % (iteration+1))
                 iteration += 1
-                with open(tmpname + '.con.iter.fa', 'w') as outH:
+                with open(tmpRef_iter, 'w') as outH:
                     outH.write(consensus)
-                stdout = blastn(tmpname+'.con.iter.fa', tmpRef, None, blastOutFMT, seg_num, seg_cov, True)
+                stdout = blastn(tmpRef_iter, tmpRef, None, blastOutFMT, seg_num, seg_cov, True)
                 copy_num = stdout.count('\n')
                 ## write new m5
-                with open(tmpname + '.con.iter.m5', 'w') as outH:
+                with open(tmpRef_iter_m5, 'w') as outH:
                     outH.write(stdout)
                 consensus_p = consensus
-                consensus = subprocess.check_output(("pbdagcon -t2 -c1 -m1 %s" % (tmpname + '.con.iter.m5')).split())
-                with open(tmpname + '.con.iter.n.fa', 'w') as outH:
+                consensus = subprocess.check_output(("pbdagcon -t2 -c1 -m1 %s" % (tmpRef_iter_m5)).split())
+                with open(tmpRef_iter_next, 'w') as outH:
                     outH.write(consensus)
                 # update delta
-                tmp = blastn(tmpname+'.con.iter.fa', tmpname+'.con.iter.n.fa', None, blastOutFMT, 1, seg_cov, False)
+                ## check the % identity between two iterations
+                tmp = blastn(tmpRef_iter, tmpRef_iter_next, None, blastOutFMT, 1, seg_cov, False)
                 tmp_len, tmp_iden = tmp.strip().split()[9:11]
                 delta = 1-float(tmp_iden)/int(tmp_len)
                 sys.stderr.write("Delta: %f\n" %(delta))
@@ -355,21 +362,31 @@ def consensus_graphmap(record, alnFile, copy_num_thre, len_diff_thre, tmp_folder
             delta = 1
             consensus_p = consensus
             iteration = 0
+            sys.stderr.write("Iteratively improving consensus\n")
+            tmpRef_iter = tmpname + '.con.iter.fa'
+            tmpRef_iter_next = tmpname + '.con.iter.n.fa'
+            tmpRef_iter_m5 = tmpname + '.con.iter.m5'
+
             while (delta>0.001 and consensus and iteration<=10):
+                sys.stderr.write("Iteration: %d\n" % (iteration+1))
                 iteration += 1
-                with open(tmpname + '.con.iter.fa', 'w') as outH:
+                with open(tmpRef_iter, 'w') as outH:
                     outH.write(consensus)
-                stdout = blastn(tmpname+'.con.iter.fa', tmpRef, None, blastOutFMT, seg_num, seg_cov, True)
+                stdout = graphmap(tmpQ, tmpRef_iter)
+                ## remove index
+                tmp = subprocess.check_output("rm  %s.*" % (tmpRef_iter), shell = True)
                 copy_num = stdout.count('\n')
                 ## write new m5
-                with open(tmpname + '.con.iter.m5', 'w') as outH:
+                with open(tmpRef_iter_m5, 'w') as outH:
                     outH.write(stdout)
                 consensus_p = consensus
-                consensus = subprocess.check_output(("pbdagcon -t2 -c1 -m1 %s" % (tmpname + '.con.iter.m5')).split())
-                with open(tmpname + '.con.iter.n.fa', 'w') as outH:
+                consensus = subprocess.check_output(("pbdagcon -t2 -c1 -m1 %s" % (tmpRef_iter_m5)).split())
+                with open(tmpRef_iter_next, 'w') as outH:
                     outH.write(consensus)
                 # update delta
-                tmp = blastn(tmpname+'.con.iter.fa', tmpname+'.con.iter.n.fa', None, blastOutFMT, 1, seg_cov, False)
+                ## check the % identity between two iterations
+                blastOutFMT = '6 sseqid sstart send slen qstart qend qlen evalue score length nident mismatch gaps sseq qseq qseqid'
+                tmp = blastn(tmpRef_iter, tmpRef_iter_next, None, blastOutFMT, 1, seg_cov, False)
                 tmp_len, tmp_iden = tmp.strip().split()[9:11]
                 delta = 1-float(tmp_iden)/int(tmp_len)
                 sys.stderr.write("Delta: %f\n" %(delta))
