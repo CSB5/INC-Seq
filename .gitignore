@@ -1,0 +1,10 @@
+# sessions
+session.*
+
+auto-save-list/
+*.dat
+
+# backups
+*pyc
+*~
+

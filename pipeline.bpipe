@@ -1,0 +1,46 @@
+
+SCRIPT = "/mnt/projects/lich/dream_challenge/rollingcircle/INCSeq"
+ALIGNER = "graphmap"
+
+set_global_var = {
+  doc title: "Set global branch variables"
+  branch.PREFIX = branch.name
+}
+
+split_fasta = {
+  doc title: "Split the fasta files"
+  desc: """
+        Split the fasta file into multiple chunks
+  """
+  output.dir = "tmp_split"
+  produce("*.fasta"){
+    exec "split -l 2000 -d -a 8 $input tmp_split/read.split_"
+    exec """	
+    	 for file in tmp_split/read.split_*; do mv "$file" "${file}.fasta"; done
+    	 """
+  }
+}
+
+
+consensus = {
+  doc title: "Consensus construction"
+  output.dir = "tmp_consensus"
+  transform (".fasta") to (".inc-seq.fa", ".inc-seq.log"){
+    exec "${SCRIPT}/inc-seq.py -i $input.fasta  -o $output1 -a ${ALIGNER} 2> $output2", "main"
+  }
+}
+
+merge_fasta = {
+  doc title: "Merge fasta"
+  desc:"""
+      Merge all the consensus fasta files
+  """
+  produce ("${PREFIX}.inc-seq.fasta",
+	   "${PREFIX}.inc-seq.log"){
+    multi "cat tmp_consensus/*.inc-seq.fa  > $output1",
+          "cat tmp_consensus/*.log > $output2"
+  }
+}
+
+
+run { "%.fa" * [set_global_var + split_fasta + "read.split_%" * [ consensus ] + merge_fasta ]}
