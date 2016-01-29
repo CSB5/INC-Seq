@@ -144,11 +144,16 @@ def segment_filter_longest_strech(coordinates_filtered):
             candidate_cur.append(cor)                                        
     return candidate
 
-#---------------------------------------------------------------------
-def consensus_blastn(record, alnFile, copy_num_thre, len_diff_thre, tmp_folder, seg_cov, iterative):
+def segment_filters(alnFile, copy_num_thre, len_diff_thre):
+    # perform filtering in three steps
+    ## split into segments:
+    ## the anchors flanking the segment must be concordant
+    ##   1. in the same direction
+    ##   2. the length must not be so different
+    ##   3. the longest strech of concordant segments will be considered
     if not alnFile:
         return None
-    
+
     aln = []    
     for line in alnFile.strip().split('\n'):
         fields = line.split()
@@ -159,7 +164,6 @@ def consensus_blastn(record, alnFile, copy_num_thre, len_diff_thre, tmp_folder, 
     ##   1. in the same direction
     ##   2. the length must not be so different
     ##   3. the longest strech of concordant segments will be considered
-    candidate_read_count = 0
 
     if len(aln) >= copy_num_thre:
         seg_coordinates = []
@@ -176,13 +180,19 @@ def consensus_blastn(record, alnFile, copy_num_thre, len_diff_thre, tmp_folder, 
         ## need some copies for correction
         if len(candidate) >= copy_num_thre:
             seg_coordinates = candidate
-            candidate_read_count += 1
             sys.stderr.write("Candidate read found!\n")
+            return seg_coordinates
         else:
             sys.stderr.write("Not enough alignmets!\n")
             return None
     else:
         sys.stderr.write("Not enough alignmets!\n")
+        return None
+
+#---------------------------------------------------------------------
+def consensus_blastn(record, alnFile, copy_num_thre, len_diff_thre, tmp_folder, seg_cov, iterative):
+    seg_coordinates = segment_filters(alnFile, copy_num_thre, len_diff_thre)
+    if not seg_coordinates:
         return None
 
     #### split into segments and call consensus
@@ -278,44 +288,9 @@ def consensus_blastn(record, alnFile, copy_num_thre, len_diff_thre, tmp_folder, 
 
 
 def consensus_graphmap(record, alnFile, copy_num_thre, len_diff_thre, tmp_folder, seg_cov, iterative):
-    if not alnFile:
-        return None
-    
-    aln = []    
-    for line in alnFile.strip().split('\n'):
-        fields = line.split()
-        aln += [ fields[1:] ]
-
-    ## split into segments:
-    ## the anchors flanking the segment must be concordant
-    ##   1. in the same direction
-    ##   2. the length must not be so different
-    ##   3. the longest strech of concordant segments will be considered
-    candidate_read_count = 0
-
-    if len(aln) >= copy_num_thre:
-        seg_coordinates = []
-        ## filter for direction
-        coordinates, lengths = segment_filter_orientation(aln)
-        len_median = median([x for x in lengths if x != "#"])
-        ## filter for length
-        coordinates_filtered = segment_filter_lengths(coordinates, lengths, len_median, len_diff_thre)
-        ## find the longest strech of segments in concordance
-        candidate = segment_filter_longest_strech(coordinates_filtered)
-
-        sys.stderr.write("Number of segments of the candidate strech: %d\n" %(len(candidate)))
-
-        ## need some copies for correction
-        if len(candidate) >= copy_num_thre:
-            seg_coordinates = candidate
-            candidate_read_count += 1
-            sys.stderr.write("Candidate read found!\n")
-        else:
-            sys.stderr.write("Not enough alignmets!\n")
-            return None
-    else:
-        sys.stderr.write("Not enough alignmets!\n")
-        return None
+    seg_coordinates = segment_filters(alnFile, copy_num_thre, len_diff_thre)
+    if not seg_coordinates:
+        return None 
 
     #### split into segments and call consensus
     ## split this read into a multiple fasta file
@@ -400,3 +375,27 @@ def consensus_graphmap(record, alnFile, copy_num_thre, len_diff_thre, tmp_folder
         return None
 
 ################################################################################
+def consensus_poa(record, alnFile, copy_num_thre, len_diff_thre, tmp_folder):
+    ## use poaV2 to align the reads and construct consensus using heaviest bundle algorithm
+    seg_coordinates = segment_filters(alnFile, copy_num_thre, len_diff_thre)
+    if not seg_coordinates:
+        return None 
+
+    #### split into segments and call consensus
+    ## split this read into a multiple fasta file
+    tmpname = tmp_folder + hashlib.md5(record.id).hexdigest() + ".tmp"
+    tmpFASTA = tmpname + ".fasta"
+
+    counter = 0
+    # write all the subreads
+    with open(tmpFASTA, 'w') as h:
+        for s, e in seg_coordinates:
+            counter += 1
+            subRead = SeqRecord(record.seq[s-1:e], record.id+'_'+str(counter), description="")
+            SeqIO.write(subRead, h, "fasta")
+
+    # run poa
+    consensus = poa(tmpFASTA, tmpname, ">"+record.id)
+    tmp = subprocess.check_output("rm  %s*" % (tmpname), shell = True)
+
+    return (consensus, len(seg_coordinates))

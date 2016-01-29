@@ -32,7 +32,7 @@ def main(arguments):
     parser.add_argument("-a", "--aligner",
                         default='blastn',
                         dest="aligner",
-                        help="The aligner used (blastn, graphmap) [Default blastn]")
+                        help="The aligner used (blastn, graphmap, poa) [Default blastn]")
     parser.add_argument("-m", "--minReadLength",
                         default=2000,
                         dest="minRL",
@@ -104,7 +104,7 @@ def main(arguments):
         else:
             # passed length filter
             #### find units
-            if args.aligner == "blastn" or args.aligner == "graphmap": ## FIXME graphmap implementation
+            if args.aligner == "blastn" or args.aligner == "graphmap" or args.aligner =="poa": ## FIXME graphmap implementation
                 aln = findUnit.find_unit_blastn(record, None, tmp_folder, seqlen, args.anchor_seg_step, args.anchor_len, args.anchor_cov)
             #### build consensus
             copy_num_thre = 4 if args.restore_with_primer else args.copy_num_thre
@@ -116,6 +116,9 @@ def main(arguments):
                 consensus = buildConsensus.consensus_graphmap(record, aln, copy_num_thre,
                                                        args.len_diff_thre, tmp_folder,
                                                        args.seg_cov, args.iterative)
+            elif args.aligner == "poa":
+                consensus = buildConsensus.consensus_poa(record, aln, copy_num_thre,
+                                                        args.len_diff_thre, tmp_folder)
             if consensus:
                 #--------------------------run second iteration to recover correct orientation-------------------------#
                 if args.restore_with_primer:

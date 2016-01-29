@@ -43,3 +43,20 @@ def graphmap(query, ref):
 
     return stdout
 
+
+def poa(fasta, tmpName, seqHeader):
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+    cmd = [script_dir+"/poa", "-do_global", "-do_progressive",
+           "-read_fasta", fasta,
+           "-pir",  "pseudo",
+           script_dir+"/blosum80.mat", "-hb"]
+    with open(tmpName+".poa.log", 'w') as log:
+        poaout = subprocess.check_output(" ".join(cmd), stderr=log, shell = True)
+    
+    ## post processing
+    consensus = poaout.split(">")[-1]
+    consensus = ''.join(consensus.split("\n")[1:])
+    consensus = consensus.replace(".","")
+    consensus = "\n".join([seqHeader, consensus]) + "\n"
+    
+    return consensus
