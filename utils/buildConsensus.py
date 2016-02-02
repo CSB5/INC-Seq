@@ -4,10 +4,19 @@ import os
 import sys
 import subprocess
 import hashlib
+import time
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from aligners import *
+
+# ## for pbdagcon
+# ## facilitate our cluster setup
+# new_gcc = "/opt/gcc-4.9.3/lib64"
+# if not 'LD_LIBRARY_PATH' in os.environ:
+#   os.environ['LD_LIBRARY_PATH'] = new_gcc + ":"
+# elif not new_gcc in os.environ.get('LD_LIBRARY_PATH'):
+#   os.environ['LD_LIBRARY_PATH'] = new_gcc + ":" + os.environ['LD_LIBRARY_PATH']
 
 ################################find primer location############################
 def locate_primer(primer_fwd, primer_rev, consensus, tmp_folder, seqlen):
@@ -189,6 +198,28 @@ def segment_filters(alnFile, copy_num_thre, len_diff_thre):
         sys.stderr.write("Not enough alignmets!\n")
         return None
 
+def pbdagcon(m5, t):
+    cmd = ("pbdagcon -t %d -c 1 -m 1  %s" % (t, m5)).split()
+    
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    ## if in 20 sec, pbdagcon does not finish, trim 1 base and recursively run it
+    poll_seconds = 0.25
+    deadline = time.time() + 5
+    while time.time() < deadline and proc.poll() == None:
+        time.sleep(poll_seconds)
+
+    if proc.poll() == None:
+        proc.terminate()
+        sys.stderr.write("Warning: PBDAGCON timeout! Trimming %d base(s).\n" %(t+1))
+
+    stdout, stderr = proc.communicate()
+    if proc.returncode != 0:
+        stdout = pbdagcon(m5, t+1)
+    return stdout
+    
+    
+    
+    
 #---------------------------------------------------------------------
 def consensus_blastn(record, alnFile, copy_num_thre, len_diff_thre, tmp_folder, seg_cov, iterative):
     seg_coordinates = segment_filters(alnFile, copy_num_thre, len_diff_thre)
@@ -242,7 +273,7 @@ def consensus_blastn(record, alnFile, copy_num_thre, len_diff_thre, tmp_folder, 
     if copy_num >= copy_num_thre:
         with open(tmpname + '.m5', 'w') as outH:
             outH.write(post_processing(alignments["alignments"]))
-        consensus = subprocess.check_output(("pbdagcon -t2 -c1 -m1 %s" % (tmpname + '.m5')).split())
+        consensus = pbdagcon(tmpname+'.m5', 0)
 
         ## run iteratively
         #----------------------------------------
@@ -257,7 +288,7 @@ def consensus_blastn(record, alnFile, copy_num_thre, len_diff_thre, tmp_folder, 
             tmpRef_iter_m5 = tmpname + '.con.iter.m5'
 
             while (delta>0.001 and consensus and iteration<=10):
-                sys.stderr.write("Iteration: %d\n" % (iteration+1))
+                sys.stderr.write("######################Iteration: %d########################\n" % (iteration+1))
                 iteration += 1
                 with open(tmpRef_iter, 'w') as outH:
                     outH.write(consensus)
@@ -267,7 +298,7 @@ def consensus_blastn(record, alnFile, copy_num_thre, len_diff_thre, tmp_folder, 
                 with open(tmpRef_iter_m5, 'w') as outH:
                     outH.write(stdout)
                 consensus_p = consensus
-                consensus = subprocess.check_output(("pbdagcon -t2 -c1 -m1 %s" % (tmpRef_iter_m5)).split())
+                consensus = pbdagcon(tmpRef_iter_m5, 0)
                 with open(tmpRef_iter_next, 'w') as outH:
                     outH.write(consensus)
                 # update delta
@@ -328,7 +359,7 @@ def consensus_graphmap(record, alnFile, copy_num_thre, len_diff_thre, tmp_folder
     if copy_num >= copy_num_thre:
         with open(tmpname + '.m5', 'w') as outH:
             outH.write(post_processing(alignments["alignments"]))
-        consensus = subprocess.check_output(("pbdagcon -t2 -c1 -m1 %s" % (tmpname + '.m5')).split())
+        consensus = pbdagcon(tmpname + '.m5', 0)
 
         ## run iteratively
         #----------------------------------------
@@ -342,8 +373,8 @@ def consensus_graphmap(record, alnFile, copy_num_thre, len_diff_thre, tmp_folder
             tmpRef_iter_next = tmpname + '.con.iter.n.fa'
             tmpRef_iter_m5 = tmpname + '.con.iter.m5'
 
-            while (delta>0.001 and consensus and iteration<=10):
-                sys.stderr.write("Iteration: %d\n" % (iteration+1))
+            while (delta>0.001 and consensus and iteration<10):
+                sys.stderr.write("######################Iteration: %d########################\n" % (iteration+1))
                 iteration += 1
                 with open(tmpRef_iter, 'w') as outH:
                     outH.write(consensus)
@@ -355,7 +386,12 @@ def consensus_graphmap(record, alnFile, copy_num_thre, len_diff_thre, tmp_folder
                 with open(tmpRef_iter_m5, 'w') as outH:
                     outH.write(stdout)
                 consensus_p = consensus
-                consensus = subprocess.check_output(("pbdagcon -t2 -c1 -m1 %s" % (tmpRef_iter_m5)).split())
+                consensus = pbdagcon(tmpRef_iter_m5, 0)
+
+                ## some cases pbdagcon return empty results
+                if not consensus:
+                    break
+
                 with open(tmpRef_iter_next, 'w') as outH:
                     outH.write(consensus)
                 # update delta

@@ -129,7 +129,7 @@ def main(arguments):
                     ref_anchor = buildConsensus.locate_primer(primer_fwd, primer_rev, consensus[0].split('\n')[1], tmp_folder, seqlen)
                     #### similar function as find units, but use the primer defined sequences to find locations
                     if ref_anchor:
-                        if args.aligner == "blastn" or args.aligner == "graphmap": ## FIXME graphmap implementation
+                        if args.aligner == "blastn" or args.aligner == "graphmap" or args.aligner == "poa": ## FIXME graphmap implementation
                             aln = findUnit.find_unit_blastn(record, ref_anchor, tmp_folder, seqlen, args.anchor_seg_step, args.anchor_len, args.anchor_cov)
                         #### consensus 
                         consensus = buildConsensus.consensus_blastn(record, aln, args.copy_num_thre, args.len_diff_thre, 'blastn', tmp_folder, args.seg_cov, False)

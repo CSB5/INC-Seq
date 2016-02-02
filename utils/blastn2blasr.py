@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-"""A simple python script template.
+"""Convert blastn output to blasr m5 format.
 
 """
 
