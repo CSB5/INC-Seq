@@ -58,8 +58,11 @@ def main(arguments):
         inFile = open(args.infile, 'rU')
         
         ##    previous_fields = 'sseqid sstart send slen qstart qend qlen evalue bitscore length pident mismatch gaps gapopen'.split(' ')
-
     alns = sorted(inFile.readlines(), key=get_cor)
+
+    if not alns:
+        ## empty results
+        return None
 
     previous_fields = alns[0].strip().split()
     if previous_fields != []:
