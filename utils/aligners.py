@@ -44,6 +44,20 @@ def graphmap(query, ref):
     return stdout
 
 
+def marginAlign(query, ref, tmpName):
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+    marginAlign_dir = "/mnt/projects/lich/dream_challenge/rollingcircle/finalized/ana_scripts/marginAlign"
+    ## run
+    cmd = [marginAlign_dir+"/marginAlign", query, ref, tmpName+".sam", "--jobTree", tmpName+".jobTree", "--em" ]
+    with open(tmpName+".margin.log", 'w') as log:
+        tmp = subprocess.check_output(" ".join(cmd), shell = True, stderr=log)
+    cmd = [script_dir+"/sam2blasr.py", "-i", tmpName+".sam", "-r", ref]
+    stdout = subprocess.check_output(" ".join(cmd), shell = True)
+    tmp = subprocess.check_output("rm -rf %s %s" %(tmpName+".jobTree", tmpName+".sam"), shell = True)
+    return stdout
+
+
+
 def poa(fasta, tmpName, seqHeader):
     script_dir = os.path.dirname(os.path.realpath(__file__))
     cmd = [script_dir+"/poa", "-do_global", "-do_progressive",

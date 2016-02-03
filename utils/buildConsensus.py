@@ -367,6 +367,7 @@ def consensus_graphmap(record, alnFile, copy_num_thre, len_diff_thre, tmp_folder
         if iterative:
             delta = 1
             consensus_p = consensus
+            copy_num_p = copy_num
             iteration = 0
             sys.stderr.write("Iteratively improving consensus\n")
             tmpRef_iter = tmpname + '.con.iter.fa'
@@ -381,7 +382,11 @@ def consensus_graphmap(record, alnFile, copy_num_thre, len_diff_thre, tmp_folder
                 stdout = graphmap(tmpQ, tmpRef_iter)
                 ## remove index
                 tmp = subprocess.check_output("rm  %s.*" % (tmpRef_iter), shell = True)
+                copy_num_p = copy_num
                 copy_num = stdout.count('\n')
+                if copy_num < copy_num_p:
+                    sys.stderr.write("Less number of copies found, skip!\n")
+                    break
                 ## write new m5
                 with open(tmpRef_iter_m5, 'w') as outH:
                     outH.write(stdout)
@@ -403,6 +408,7 @@ def consensus_graphmap(record, alnFile, copy_num_thre, len_diff_thre, tmp_folder
                 sys.stderr.write("Delta: %f\n" %(delta))
             #----------------------------------------
             consensus = consensus_p
+            copy_num = copy_num_p
         tmp = subprocess.check_output("rm  %s*" % (tmpname), shell = True)
         return (consensus, copy_num)
     else:
@@ -462,70 +468,81 @@ def consensus_marginAlign(record, alnFile, copy_num_thre, len_diff_thre, tmp_fol
         subRead.letter_annotations["phred_quality"] = [40] * len(subRead)
         SeqIO.write(subRead, q_handle, "fastq")
     q_handle.close()
-    # # graphmap
-    # for subRead in subReads:
-    #     ref_handle = open(tmpRef, 'w')
-    #     SeqIO.write(subRead, ref_handle, "fasta")
-    #     ref_handle.close()
-    #     stdout = graphmap(tmpQ, tmpRef)
-    #     errors = get_errors(stdout)
-    #     if errors < alignments["errors"]:
-    #         alignments["errors"] = errors
-    #         alignments["alignments"] = stdout
-    #     ## remove index
-    #     tmp = subprocess.check_output("rm  %s*" % (tmpRef), shell = True)
+    # use graphmap to determine the best backbone
+    # graphmap
+    best_backbone = None
+    for subRead in subReads:
+        ref_handle = open(tmpRef, 'w')
+        SeqIO.write(subRead, ref_handle, "fasta")
+        ref_handle.close()
+        stdout = graphmap(tmpQ, tmpRef)
+        errors = get_errors(stdout)
+        if errors < alignments["errors"]:
+            alignments["errors"] = errors
+            alignments["alignments"] = stdout
+            best_backbone = subRead
+        ## remove index
+        tmp = subprocess.check_output("rm  %s*" % (tmpRef), shell = True)
+
+    sys.stderr.write("Using %s as the backbone\n" % (best_backbone.id))
+    # marginAlign
+    ref_handle = open(tmpRef, 'w')
+    SeqIO.write(best_backbone, ref_handle, "fasta")
+    ref_handle.close()
+    stdout = marginAlign(tmpQ, tmpRef, tmpname+"margin")
+    ##errors = get_errors(stdout)
+    ##alignments["errors"] = errors
+    alignments["alignments"] = stdout
         
-    # copy_num = alignments["alignments"].count("\n")
-    # if copy_num >= copy_num_thre:
-    #     with open(tmpname + '.m5', 'w') as outH:
-    #         outH.write(post_processing(alignments["alignments"]))
-    #     consensus = pbdagcon(tmpname + '.m5', 0)
+    copy_num = alignments["alignments"].count("\n")
+    if copy_num >= copy_num_thre:
+        with open(tmpname + '.m5', 'w') as outH:
+            outH.write(post_processing(alignments["alignments"]))
+        consensus = pbdagcon(tmpname + '.m5', 0)
 
-    #     ## run iteratively
-    #     #----------------------------------------
-    #     # write consensus seq 0
-    #     if iterative:
-    #         delta = 1
-    #         consensus_p = consensus
-    #         iteration = 0
-    #         sys.stderr.write("Iteratively improving consensus\n")
-    #         tmpRef_iter = tmpname + '.con.iter.fa'
-    #         tmpRef_iter_next = tmpname + '.con.iter.n.fa'
-    #         tmpRef_iter_m5 = tmpname + '.con.iter.m5'
+        ## run iteratively
+        #----------------------------------------
+        # write consensus seq 0
+        if iterative:
+            delta = 1
+            consensus_p = consensus
+            iteration = 0
+            sys.stderr.write("Iteratively improving consensus\n")
+            tmpRef_iter = tmpname + '.con.iter.fa'
+            tmpRef_iter_next = tmpname + '.con.iter.n.fa'
+            tmpRef_iter_m5 = tmpname + '.con.iter.m5'
 
-    #         while (delta>0.001 and consensus and iteration<10):
-    #             sys.stderr.write("######################Iteration: %d########################\n" % (iteration+1))
-    #             iteration += 1
-    #             with open(tmpRef_iter, 'w') as outH:
-    #                 outH.write(consensus)
-    #             stdout = graphmap(tmpQ, tmpRef_iter)
-    #             ## remove index
-    #             tmp = subprocess.check_output("rm  %s.*" % (tmpRef_iter), shell = True)
-    #             copy_num = stdout.count('\n')
-    #             ## write new m5
-    #             with open(tmpRef_iter_m5, 'w') as outH:
-    #                 outH.write(stdout)
-    #             consensus_p = consensus
-    #             consensus = pbdagcon(tmpRef_iter_m5, 0)
+            while (delta>0.001 and consensus and iteration<10):
+                sys.stderr.write("######################Iteration: %d########################\n" % (iteration+1))
+                iteration += 1
+                with open(tmpRef_iter, 'w') as outH:
+                    outH.write(consensus)
+                stdout = marginAlign(tmpQ, tmpRef_iter, tmpname+"margin")
+                copy_num = stdout.count('\n')
+                ## write new m5
+                with open(tmpRef_iter_m5, 'w') as outH:
+                    outH.write(stdout)
+                consensus_p = consensus
+                consensus = pbdagcon(tmpRef_iter_m5, 0)
 
-    #             ## some cases pbdagcon return empty results
-    #             if not consensus:
-    #                 break
+                ## some cases pbdagcon return empty results
+                if not consensus:
+                    break
 
-    #             with open(tmpRef_iter_next, 'w') as outH:
-    #                 outH.write(consensus)
-    #             # update delta
-    #             ## check the % identity between two iterations
-    #             blastOutFMT = '6 sseqid sstart send slen qstart qend qlen evalue score length nident mismatch gaps sseq qseq qseqid'
-    #             tmp = blastn(tmpRef_iter, tmpRef_iter_next, None, blastOutFMT, 1, seg_cov, False)
-    #             tmp_len, tmp_iden = tmp.strip().split()[9:11]
-    #             delta = 1-float(tmp_iden)/int(tmp_len)
-    #             sys.stderr.write("Delta: %f\n" %(delta))
-    #         #----------------------------------------
-    #         consensus = consensus_p
-    #     tmp = subprocess.check_output("rm  %s*" % (tmpname), shell = True)
-    #     return (consensus, copy_num)
-    # else:
-    #     sys.stderr.write("Not enough aligned copy to correct!\n")
-    #     tmp = subprocess.check_output("rm  %s*" % (tmpname), shell = True)
-    #     return None
+                with open(tmpRef_iter_next, 'w') as outH:
+                    outH.write(consensus)
+                # update delta
+                ## check the % identity between two iterations
+                blastOutFMT = '6 sseqid sstart send slen qstart qend qlen evalue score length nident mismatch gaps sseq qseq qseqid'
+                tmp = blastn(tmpRef_iter, tmpRef_iter_next, None, blastOutFMT, 1, seg_cov, False)
+                tmp_len, tmp_iden = tmp.strip().split()[9:11]
+                delta = 1-float(tmp_iden)/int(tmp_len)
+                sys.stderr.write("Delta: %f\n" %(delta))
+            #----------------------------------------
+            consensus = consensus_p
+        tmp = subprocess.check_output("rm  %s*" % (tmpname), shell = True)
+        return (consensus, copy_num)
+    else:
+        sys.stderr.write("Not enough aligned copy to correct!\n")
+        tmp = subprocess.check_output("rm  %s*" % (tmpname), shell = True)
+        return None
