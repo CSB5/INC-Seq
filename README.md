@@ -2,7 +2,7 @@ INC-Seq: Accurate single molecule reads using nanopore sequencing
 ======
 Description:
 ------
-These repository contains the code for analyzing INC-Seq data (http://biorxiv.org/content/early/2016/01/27/038042). The data have been deposited into ENA (http://www.ebi.ac.uk/ena/data/view/PRJEB12294).
+This repository contains the code for analyzing INC-Seq data (http://biorxiv.org/content/early/2016/01/27/038042). The data have been deposited into ENA (http://www.ebi.ac.uk/ena/data/view/PRJEB12294).
 
 Requirements:
 --------------
