@@ -17,7 +17,24 @@ def get_tmp(program):
     tmp_folder += program + program_time + "/"
     return tmp_folder
 
-        
+def callBuildConsensus(aligner, record, aln, copy_num_thre, len_diff_thre, tmp_folder, seg_cov, iterative):
+    if aligner == "blastn":
+        consensus = buildConsensus.consensus_blastn(record, aln, copy_num_thre,
+                                                    len_diff_thre, tmp_folder,
+                                                    seg_cov, iterative)
+    elif aligner == "graphmap":
+        consensus = buildConsensus.consensus_graphmap(record, aln, copy_num_thre,
+                                                      len_diff_thre, tmp_folder,
+                                                      seg_cov, iterative)
+    elif aligner == "poa":
+        consensus = buildConsensus.consensus_poa(record, aln, copy_num_thre,
+                                                 len_diff_thre, tmp_folder)
+    elif aligner == "marginAlign":
+        consensus = buildConsensus.consensus_marginAlign(record, aln, copy_num_thre,
+                                                         len_diff_thre, tmp_folder,
+                                                         seg_cov, iterative)
+    return consensus
+
 def main(arguments):
     #### parsing arguments
     parser = argparse.ArgumentParser(description=__doc__)
@@ -108,23 +125,21 @@ def main(arguments):
                 aln = findUnit.find_unit_blastn(record, None, tmp_folder, seqlen, args.anchor_seg_step, args.anchor_len, args.anchor_cov)
             #### build consensus
             copy_num_thre = 4 if args.restore_with_primer else args.copy_num_thre
-            if args.aligner == "blastn":
-                consensus = buildConsensus.consensus_blastn(record, aln, copy_num_thre,
-                                                     args.len_diff_thre, tmp_folder,
-                                                     args.seg_cov, args.iterative)
-            elif args.aligner == "graphmap":
-                consensus = buildConsensus.consensus_graphmap(record, aln, copy_num_thre,
-                                                       args.len_diff_thre, tmp_folder,
-                                                       args.seg_cov, args.iterative)
-            elif args.aligner == "poa":
-                consensus = buildConsensus.consensus_poa(record, aln, copy_num_thre,
-                                                        args.len_diff_thre, tmp_folder)
-            elif args.aligner == "marginAlign":
-                consensus = buildConsensus.consensus_marginAlign(record, aln, copy_num_thre,
-                                                                 args.len_diff_thre, tmp_folder,
-                                                                 args.seg_cov, args.iterative)
+
+            consensus = callBuildConsensus(args.aligner, record, aln, copy_num_thre,
+                                           args.len_diff_thre, tmp_folder,
+                                           args.seg_cov, args.iterative)
  
             if consensus:
+                ## use consensus sequence as anchor to extract more segments
+                # if args.iterative:
+                #     aln = findUnit.find_unit_blastn(record, consensus[0].split("\n")[1][0:500], tmp_folder, seqlen, args.anchor_seg_step, args.anchor_len, args.anchor_cov)
+                #     consensus = callBuildConsensus(args.aligner, record, aln, copy_num_thre,
+                #                                    args.len_diff_thre, tmp_folder,
+                #                                    args.seg_cov, args.iterative)
+                #     sys.stderr.write("Consensus called\t%s\tNumber of segments\t%d\n" %(record.id, consensus[1]))
+                #     args.outFile.write(consensus[0])
+                    
                 #--------------------------run second iteration to recover correct orientation-------------------------#
                 if args.restore_with_primer:
                     raw_consensus.write(consensus[0])

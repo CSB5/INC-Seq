@@ -1,7 +1,8 @@
 
-SCRIPT = "/mnt/projects/lich/dream_challenge/rollingcircle/INCSeq"
+SCRIPT = "~/projects_backup/INCSeq"
 //ALIGNER = "graphmap"
 ALIGNER = "blastn"
+READ_NUM = 1000
 
 set_global_var = {
   doc title: "Set global branch variables"
@@ -15,7 +16,7 @@ split_fasta = {
   """
   output.dir = "tmp_split"
   produce("*.fasta"){
-    exec "split -l 2000 -d -a 8 $input tmp_split/read.split_"
+    exec "split -l ${READ_NUM} -d -a 8 $input tmp_split/read.split_"
     exec """	
     	 for file in tmp_split/read.split_*; do mv "$file" "${file}.fasta"; done
     	 """
@@ -27,7 +28,7 @@ consensus = {
   doc title: "Consensus construction"
   output.dir = "tmp_consensus"
   transform (".fasta") to (".inc-seq.fa", ".inc-seq.log"){
-    exec "${SCRIPT}/inc-seq.py -i $input.fasta  -o $output1 -a ${ALIGNER} --iterative 2> $output2", "main"
+    exec "${SCRIPT}/inc-seq.py -i $input.fasta  -o $output1 -a ${ALIGNER}  2> $output2", "main"
   }
 }
 
