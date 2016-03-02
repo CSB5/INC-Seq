@@ -28,7 +28,7 @@ consensus = {
   doc title: "Consensus construction"
   output.dir = "tmp_consensus"
   transform (".fasta") to (".inc-seq.fa", ".inc-seq.log"){
-    exec "${SCRIPT}/inc-seq.py -i $input.fasta  -o $output1 -a ${ALIGNER}  2> $output2", "main"
+    exec "${SCRIPT}/inc-seq.py -i $input.fasta  -o $output1 -a ${ALIGNER} --iterative 2> $output2", "main"
   }
 }
 

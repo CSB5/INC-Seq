@@ -13,18 +13,20 @@ from collections import deque
 
 def split_cigar(cigar):
     ## split the cigar into a list of tuples
-    cigar_splitted = rs('(S|I|D|M|X|=)', cigar)
+    cigar_splitted = rs('(S|I|D|M|X|=|H)', cigar)
     return zip(cigar_splitted[0::2], cigar_splitted[1::2])
 
 def build_aln(ref, seq, cigar, tstart):
     ## construct the alignment
     qstart = 1
     qend = len(seq)
+    ## soft clipping
     if cigar[0][1] == 'S':
         qstart = int(cigar[0][0]) + 1 ## this is one based
         tstart = tstart - int(cigar[0][0])
     if cigar[-1][1] == 'S':
         qend = qend - int(cigar[-1][0])
+    ## hard clipping does not need to be explicitly handled
 
     tmp_q = deque(seq[qstart-1:])
     tmp_t = deque(ref[tstart + qstart-1:])
@@ -50,7 +52,8 @@ def build_aln(ref, seq, cigar, tstart):
     qseq = ''.join(qseq)
     tseq = ''.join(tseq)
     match = ''.join(match)
-    return [str(qstart), str(qend), qseq, match, tseq]
+    ## blasr output seems to be 0-based, half-open
+    return [str(qstart-1), str(qend), qseq, match, tseq]
 
 def main(arguments):
     parser = argparse.ArgumentParser(description=__doc__)
@@ -76,6 +79,10 @@ def main(arguments):
                         dest='outFile',
                         default=sys.stdout, 
                         type=argparse.FileType('w'))
+    parser.add_argument("--pacbio",
+                        action = "store_true",
+                        dest="pacbio_flag",
+                        help="Output in PacBio's format")
 
     args = parser.parse_args(arguments)
     # read the reference sequence
@@ -113,9 +120,11 @@ def main(arguments):
                 counter += 1
                 cigar = fields[5]
                 read_seq = fields[9]
-                tStart = fields[3]
+                tStart = int(fields[3]) - 1 
                 tName = fields[2]
-                qStart, qEnd, qseq, match, tseq =  build_aln(ref[tName], list(read_seq), split_cigar(cigar), int(tStart)-1)
+                mapQV = fields[4]
+                samflags = fields[1]
+                qStart, qEnd, qseq, match, tseq =  build_aln(ref[tName], list(read_seq), split_cigar(cigar), tStart)
                 if args.debug:
                     print qseq
                     print match
@@ -124,15 +133,20 @@ def main(arguments):
                     qName = fields[0]
                     qLength = str(len(read_seq))
                     tLength = str(len(tseq))
-                    tEnd = str(int(tStart) + len(tseq) - tseq.count('-') - 1)
+                    tEnd = str(tStart + len(tseq) - tseq.count('-'))
                     score = '-3000'
                     numMatch = str(match.count('|'))
                     numIns = str(qseq.count('-'))
                     numDel = str(tseq.count('-'))
                     numMismatch = str(match.count('*') - int(numIns) - int(numDel))
-                    mapQV = '254'
-                    output = ' '.join([qName, qLength, qStart, qEnd, '+', tName, tLength, tStart, tEnd, '+', score, numMatch, numMismatch, numIns, numDel, mapQV, qseq, match, tseq])
-
+                    if args.pacbio_flag:
+                        AS = fields[13].split(":")[-1]
+                        qStrand = "+" if int(samflags)/16%2 == 0 else "-"
+                        percent_id = float(numMatch)/len(match)*100
+                        output = '\t'.join([qName, tName, qStrand, '+', AS, str(percent_id), str(tStart), tEnd, tLength, qStart, qEnd, qLength, "1111"]
+                        )
+                    else: ## notice m5 format has two spaces after qStrand
+                        output = ' '.join([qName, qLength, qStart, qEnd, '+ ', tName, tLength, str(tStart), tEnd, '+', score, numMatch, numMismatch, numIns, numDel, mapQV, qseq, match, tseq])
                     args.outFile.write(output + '\n')
     ## qName qLength qStart qEnd qStrand tName tLength tStart tEnd tStrand score numMatch numMismatch numIns numDel mapQV qAlignedSeq matchPattern tAlignedSeq ##
     ##sys.stderr.write('\nNumber of aligned reads: ' + str(counter) + '\n')
