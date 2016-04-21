@@ -55,26 +55,26 @@ def main(arguments):
                         dest="minRL",
                         type=int,
                         help="The reads shorter than this will be discarded [Default 2000]")
-    parser.add_argument("--restore_with_primer",
-                        action = "store_true",
-                        dest="restore_with_primer",
-                        help="Restore orientation using primers [Default: False]")
     ##find unit specific
     parser.add_argument("--anchor_seg_step",
                         default=500,
                         dest="anchor_seg_step",
                         type=int,
-                        help="Step of sliding window used as anchors [Default 500] (eg. -s 500 : start at 0, 500, 1000, ...)")
+                        help="Step of sliding window used as anchors [Default: 500] (eg. -s 500 : start at 0, 500, 1000, ...)")
     parser.add_argument("--anchor_length",
                         default=500,
                         dest="anchor_len",
                         type=int,
-                        help="The length of the anchor, should be smaller than the unit length [Default 500]")
+                        help="The length of the anchor, should be smaller than the unit length [Default: 500]")
     parser.add_argument("--anchor_cov",
                         default=0.8,
                         dest="anchor_cov",
                         type=float,
-                        help="Anchor coverage required [Default 0.8]")
+                        help="Anchor coverage required [Default: 0.8]")
+    parser.add_argument("--anchor_seq",
+                        dest="anchor_seq",
+                        type=str,
+                        help="A single file containing the sequences used as the anchor [Default: Use subsequences as anchors]")
     ##consensus building specific
     parser.add_argument("--iterative",
                         action = "store_true",
@@ -84,7 +84,7 @@ def main(arguments):
                         default=0.8,
                         dest="seg_cov",
                         type=float,
-                        help="Segment coverage required [Default 0.8]")
+                        help="Segment coverage required [Default: 0.8]")
     parser.add_argument("--copy_num_thre",
                         dest="copy_num_thre",
                         default = 6,
@@ -95,10 +95,6 @@ def main(arguments):
                         default = 0.05,
                         type = float,
                         help="Segment length deviation from the median to be considered as concordant [Default: 0.05]")
-    parser.add_argument('--raw_consensus',
-                        help="Consensus file generated from the first stage with rotation unsolved [Default: raw_consensus.fasta]",
-                        dest = "raw_consensus",
-                        default="raw_consensus.fasta")
 
     args = parser.parse_args(arguments)
     
@@ -110,54 +106,42 @@ def main(arguments):
     os.makedirs(tmp_folder)
     
     counter = 0
-    if args.restore_with_primer:
-        raw_consensus = open(args.raw_consensus, 'w')
+
     for record in seqs:
         seqlen = len(record.seq)
         sys.stderr.write("---------- Processing read %i ----------\n" % (counter + 1))
         counter += 1
         if seqlen < args.minRL:
+            #### length filter
             sys.stderr.write("Failed to pass length filter!\n")
         else:
-            # passed length filter
             #### find units
             if args.aligner == "blastn" or args.aligner == "graphmap" or args.aligner =="poa" or args.aligner == "marginAlign": ## FIXME graphmap implementation
-                aln = findUnit.find_unit_blastn(record, None, tmp_folder, seqlen, args.anchor_seg_step, args.anchor_len, args.anchor_cov)
-            #### build consensus
-            copy_num_thre = 4 if args.restore_with_primer else args.copy_num_thre
+                if args.anchor_seq:
+                    ## anchor sequence provided, run with INC-Seq2 mode
+                    anchor_seq = SeqIO.read(args.anchor_seq, "fasta").seq
+                    aln = findUnit.find_unit_blastn(record, anchor_seq, tmp_folder, seqlen,
+                                                    args.anchor_seg_step,
+                                                    args.anchor_len,
+                                                    args.anchor_cov)
+                else:
+                    ## use subsequences as anchors (INC-Seq mode)
+                    aln = findUnit.find_unit_blastn(record, None, tmp_folder, seqlen,
+                                                    args.anchor_seg_step,
+                                                    args.anchor_len,
+                                                    args.anchor_cov)
 
-            consensus = callBuildConsensus(args.aligner, record, aln, copy_num_thre,
+            #### build consensus
+            consensus = callBuildConsensus(args.aligner, record, aln, args.copy_num_thre,
                                            args.len_diff_thre, tmp_folder,
                                            args.seg_cov, args.iterative)
  
             if consensus:                    
-                #--------------------------run second iteration to recover correct orientation-------------------------#
-                if args.restore_with_primer:
-                    raw_consensus.write(consensus[0])
-                    #### find primer position
-                    primer_fwd = "ACTNCTACGGNAGGCNGC"
-                    primer_rev = "CNNCACGAGCTGACGAC"
-                    ref_anchor = buildConsensus.locate_primer(primer_fwd, primer_rev, consensus[0].split('\n')[1], tmp_folder, seqlen)
-                    #### similar function as find units, but use the primer defined sequences to find locations
-                    if ref_anchor:
-                        if args.aligner == "blastn" or args.aligner == "graphmap" or args.aligner == "poa": ## FIXME graphmap implementation
-                            aln = findUnit.find_unit_blastn(record, ref_anchor, tmp_folder, seqlen, args.anchor_seg_step, args.anchor_len, args.anchor_cov)
-                        #### consensus 
-                        consensus = buildConsensus.consensus_blastn(record, aln, args.copy_num_thre, args.len_diff_thre, 'blastn', tmp_folder, args.seg_cov, False)
-                        if consensus:
-                            args.outFile.write(consensus[0])
-                            sys.stderr.write("Consensus called\t%s\tNumber of segments\t%d\n" %(record.id, consensus[1]))
-                    else:
-                        sys.stderr.write("Cannot locate the primer!\n")
-                #--------------------------------------------------------------------------------------------------------#
-                else:
                     sys.stderr.write("Consensus called\t%s\tNumber of segments\t%d\n" %(record.id, consensus[1]))
                     args.outFile.write(consensus[0])
             else:
                 sys.stderr.write("Consensus construction failed!\n")
     os.rmdir(tmp_folder)
-    if args.restore_with_primer:
-        raw_consensus.close()
     
 if __name__ == '__main__':
     sys.exit(main(sys.argv[1:]))

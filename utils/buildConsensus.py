@@ -18,7 +18,7 @@ from aligners import *
 # elif not new_gcc in os.environ.get('LD_LIBRARY_PATH'):
 #   os.environ['LD_LIBRARY_PATH'] = new_gcc + ":" + os.environ['LD_LIBRARY_PATH']
 
-################################find primer location############################
+################################find primer location (not in use) ############################
 def locate_primer(primer_fwd, primer_rev, consensus, tmp_folder, seqlen):
     tmpname = tmp_folder + hashlib.md5("primer").hexdigest() + ".tmp"
     tmpRef = tmpname + ".ref.fasta"

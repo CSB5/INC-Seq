@@ -28,14 +28,19 @@ def find_unit_blastn(record, ref_anchor, tmp_folder, seqlen, query_seg_step, que
         SeqIO.write(record, ref_handle, "fasta")
 
     if ref_anchor:
-        ## ref anchor is provided, use it
+        ## ref anchor is provided
+        ## firstly map the ref anchor to the read (best mapping)
+        ## then extract 100 bps from the ref anchor and use it as the new anchor
         with open(tmpQ, 'w') as q_handle:
             qrecord = SeqRecord(Seq(ref_anchor),
                                 record.id+ "RefAnchor",
                                 description= "")
             SeqIO.write(qrecord, q_handle, "fasta")
         stdout = blastn(tmpQ, tmpRef, None, blastOutFMT,
-                        seqlen/query_len + 1, anchor_cov, False)
+                        1, anchor_cov, False)
+        
+        a_start, a_end = map(int, stdout.split()[1:3])
+        
         alignments['number'] = max(stdout.count('\n') - 1,0)
         alignments['alignments'] = stdout
     else:
