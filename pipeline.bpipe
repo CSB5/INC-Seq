@@ -3,6 +3,7 @@ SCRIPT = "~/projects_backup/INCSeq"
 //ALIGNER = "graphmap"
 ALIGNER = "blastn"
 READ_NUM = 1000
+LINE_NUM = READ_NUM * 2
 
 set_global_var = {
   doc title: "Set global branch variables"
@@ -16,7 +17,7 @@ split_fasta = {
   """
   output.dir = "tmp_split"
   produce("*.fasta"){
-    exec "split -l ${READ_NUM} -d -a 8 $input tmp_split/read.split_"
+    exec "split -l ${LINE_NUM} -d -a 8 $input tmp_split/read.split_"
     exec """	
     	 for file in tmp_split/read.split_*; do mv "$file" "${file}.fasta"; done
     	 """
