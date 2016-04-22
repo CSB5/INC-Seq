@@ -119,8 +119,7 @@ def main(arguments):
             if args.aligner == "blastn" or args.aligner == "graphmap" or args.aligner =="poa" or args.aligner == "marginAlign": ## FIXME graphmap implementation
                 if args.anchor_seq:
                     ## anchor sequence provided, run with INC-Seq2 mode
-                    anchor_seq = SeqIO.read(args.anchor_seq, "fasta").seq
-                    aln = findUnit.find_unit_blastn(record, anchor_seq, tmp_folder, seqlen,
+                    aln = findUnit.find_unit_blastn(record, args.anchor_seq, tmp_folder, seqlen,
                                                     args.anchor_seg_step,
                                                     args.anchor_len,
                                                     args.anchor_cov)
