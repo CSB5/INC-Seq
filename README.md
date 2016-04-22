@@ -64,4 +64,8 @@ Examples:
 ```
 ./inc-seq.py -i data/inc_seq_test_read.fa -o consensus.fa -a graphmap
 ```
-
+* Use bpipe pipeline for pseudo-parallel computing
+Split the reads into multiple files (300 reads per file) and run INC-Seq (4 instances) in parallel.
+```
+bpipe run -p READ_NUM=300 -t 4 pipeline.bpipe a_lot_of_incseq_reads.fa
+```
