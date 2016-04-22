@@ -11,6 +11,49 @@ Requirements:
  - BLAST 2.2.28+
  - PBDAGCON (https://github.com/PacificBiosciences/pbdagcon)
 
+Usage:
+--------------
+```
+usage: inc-seq.py [-h] -i INFASTA [-o OUTFILE] [-a ALIGNER] [-m MINRL]
+                  [--anchor_seg_step ANCHOR_SEG_STEP]
+                  [--anchor_length ANCHOR_LEN] [--anchor_cov ANCHOR_COV]
+                  [--anchor_seq ANCHOR_SEQ] [--iterative] [--seg_cov SEG_COV]
+                  [--copy_num_thre COPY_NUM_THRE]
+                  [--length_difference_threshold LEN_DIFF_THRE]
+
+The INC-Seq pipeline
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -i INFASTA, --input INFASTA
+                        Input file in fasta format
+  -o OUTFILE, --outfile OUTFILE
+                        Output file
+  -a ALIGNER, --aligner ALIGNER
+                        The aligner used (blastn, graphmap, poa) [Default:
+                        blastn]
+  -m MINRL, --minReadLength MINRL
+                        The reads shorter than this will be discarded
+                        [Default:2000]
+  --anchor_seg_step ANCHOR_SEG_STEP
+                        Step of sliding window used as anchors [Default: 500]
+                        (eg. -s 500 : start at 0, 500, 1000, ...)
+  --anchor_length ANCHOR_LEN
+                        The length of the anchor, should be smaller than the
+                        unit length [Default: 500]
+  --anchor_cov ANCHOR_COV
+                        Anchor coverage required [Default: 0.8]
+  --anchor_seq ANCHOR_SEQ
+                        A single file containing the sequences used as the
+                        anchor [Default: Use subsequences as anchors]
+  --iterative           Iteratively run pbdagcon on consensus [Default: False]
+  --seg_cov SEG_COV     Segment coverage required [Default: 0.8]
+  --copy_num_thre COPY_NUM_THRE
+                        Minimal copy number required [Default: 6]
+  --length_difference_threshold LEN_DIFF_THRE
+                        Segment length deviation from the median to be
+                        considered as concordant [Default: 0.05]
+```
 Examples:
 --------------
 * Basic usage
