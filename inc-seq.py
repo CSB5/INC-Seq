@@ -49,12 +49,12 @@ def main(arguments):
     parser.add_argument("-a", "--aligner",
                         default='blastn',
                         dest="aligner",
-                        help="The aligner used (blastn, graphmap, poa) [Default blastn]")
+                        help="The aligner used (blastn, graphmap, poa) [Default: blastn]")
     parser.add_argument("-m", "--minReadLength",
                         default=2000,
                         dest="minRL",
                         type=int,
-                        help="The reads shorter than this will be discarded [Default 2000]")
+                        help="The reads shorter than this will be discarded [Default:2000]")
     ##find unit specific
     parser.add_argument("--anchor_seg_step",
                         default=500,
