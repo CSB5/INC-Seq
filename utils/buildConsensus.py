@@ -79,8 +79,10 @@ def median(mylist):
 def get_errors(alignments):
     errors = 0
     count = 0
+    if alignments == '\n' or alignments == '':
+        return sys.maxint
     for l in alignments.split('\n'):
-        if l != '':
+        if l != '': 
             count += 1
             fields = l.split()
             errors += sum([ int(x) for x in fields[12:15] ])
