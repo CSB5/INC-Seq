@@ -80,6 +80,10 @@ def main(arguments):
                         action = "store_true",
                         dest="iterative",
                         help="Iteratively run pbdagcon on consensus [Default: False]")
+    parser.add_argument("--segments_only",
+                        action = "store_true",
+                        dest="segments_only",
+                        help="Extract segments only without constucting consensus [Default: False]")
     parser.add_argument("--seg_cov",
                         default=0.8,
                         dest="seg_cov",
@@ -107,6 +111,8 @@ def main(arguments):
     
     counter = 0
 
+    if args.segments_only:
+        outH = open("inc_seq.segments.fa", "w")
     for record in seqs:
         seqlen = len(record.seq)
         sys.stderr.write("---------- Processing read %i ----------\n" % (counter + 1))
@@ -131,6 +137,11 @@ def main(arguments):
                                                     args.anchor_cov)
 
             #### build consensus
+            if args.segments_only:
+                tmp = buildConsensus.segmentize(record, aln, args.copy_num_thre, args.len_diff_thre,
+                                                outH)
+                sys.stderr.write("Consensus construction skipped, check \"inc_seq.segments.fa\" for extracted segments!\n")
+                continue #skip consensus building
             consensus = callBuildConsensus(args.aligner, record, aln, args.copy_num_thre,
                                            args.len_diff_thre, tmp_folder,
                                            args.seg_cov, args.iterative)
@@ -140,6 +151,9 @@ def main(arguments):
                     args.outFile.write(consensus[0])
             else:
                 sys.stderr.write("Consensus construction failed!\n")
+    if args.segments_only:
+        outH.close()
+
     os.rmdir(tmp_folder)
     
 if __name__ == '__main__':

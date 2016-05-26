@@ -219,17 +219,29 @@ def pbdagcon(m5, t):
         stdout = pbdagcon(m5, t+1)
     return stdout
     
-    
-    
+def segmentize(record, alnFile, copy_num_thre, len_diff_thre, outH):
+    ## only extract segments without building consensus
+    seg_coordinates = segment_filters(alnFile, copy_num_thre, len_diff_thre)
+    if not seg_coordinates:
+        return None
+    counter = 0
+    # write refs (all the subreads)
+    for s, e in seg_coordinates:
+        counter += 1
+        subRead = SeqRecord(record.seq[s-1:e], record.id+'_'+str(counter), description="")
+        SeqIO.write(subRead, outH, "fasta")
+    return 1
     
 #---------------------------------------------------------------------
 def consensus_blastn(record, alnFile, copy_num_thre, len_diff_thre, tmp_folder, seg_cov, iterative):
     seg_coordinates = segment_filters(alnFile, copy_num_thre, len_diff_thre)
     if not seg_coordinates:
         return None
-
+    
     #### split into segments and call consensus
     ## split this read into a multiple fasta file
+    subReads = segmentize(record, alnFile, copy_num_thre, len_diff_thre, tmp_folder)
+    
     tmpname = tmp_folder + hashlib.md5(record.id).hexdigest() + ".tmp"
     tmpRef = tmpname + ".ref.fasta"
     tmpQ = tmpname + ".q.fasta"
