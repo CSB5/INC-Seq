@@ -240,8 +240,6 @@ def consensus_blastn(record, alnFile, copy_num_thre, len_diff_thre, tmp_folder, 
     
     #### split into segments and call consensus
     ## split this read into a multiple fasta file
-    subReads = segmentize(record, alnFile, copy_num_thre, len_diff_thre, tmp_folder)
-    
     tmpname = tmp_folder + hashlib.md5(record.id).hexdigest() + ".tmp"
     tmpRef = tmpname + ".ref.fasta"
     tmpQ = tmpname + ".q.fasta"
