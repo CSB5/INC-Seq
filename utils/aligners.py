@@ -21,7 +21,7 @@ def blastn(query, ref, wordSize, blastOutFMT, num_alignments, anchor_cov, toBlas
     filteredblastout = subprocess.Popen(cmd, stdin = blastout.stdout, stdout = subprocess.PIPE)
     if not toBlasr:
         stdout, stderr = filteredblastout.communicate()
-        blastout.stdout.close()
+        filteredblastout.stdout.close()
 
     else:
         cmd = [script_dir+"/blastn2blasr.py", "-i", "-"]
