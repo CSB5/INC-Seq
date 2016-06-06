@@ -201,10 +201,11 @@ def segment_filters(alnFile, copy_num_thre, len_diff_thre):
         return None
 
 def pbdagcon(m5, t):
-    cmd = ("pbdagcon -t %d -c 1 -m 1  %s" % (t, m5)).split()
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+    cmd = ("%s/pbdagcon -t %d -c 1 -m 1  %s" % (script_dir, t, m5)).split()
     
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    ## if in 20 sec, pbdagcon does not finish, trim 1 base and recursively run it
+    ## if in 5 sec, pbdagcon does not finish, trim 1 base and recursively run it
     poll_seconds = 0.25
     deadline = time.time() + 5
     while time.time() < deadline and proc.poll() == None:
