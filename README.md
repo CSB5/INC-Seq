@@ -9,7 +9,6 @@ Requirements:
  - Python 2.7
  - Biopython 1.65
  - BLAST 2.2.28+
- - PBDAGCON (https://github.com/PacificBiosciences/pbdagcon)
 
 Usage:
 --------------
