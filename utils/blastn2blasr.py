@@ -34,9 +34,8 @@ def main(arguments):
     for line in h:
         fields = line.strip().split()
         record = dict(zip(blastOutFMT, fields))
-
-        output = [record['sseqid'], record['slen'], record['sstart'], record['send'], ]
-        output += [ '+' if int(record['sstart']) < int(record['send']) else '-']
+        output = [record['sseqid'], record['slen'], str(int(record['sstart'])-1), record['send'], ] ## FIXME: 0 indexing, half open
+        output += [ '+ ' if int(record['sstart']) < int(record['send']) else '- '] ##blasr m5 has an extra space after qstrand
         output += [record['qseqid'], record['qlen'], record['qstart'], record['qend'], '+']
         output += ['-3000']  ## a fake score
         output += [record['nident'], record['mismatch']]
