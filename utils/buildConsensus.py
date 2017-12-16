@@ -203,7 +203,9 @@ def segment_filters(alnFile, copy_num_thre, len_diff_thre):
 def pbdagcon(m5, t):
     script_dir = os.path.dirname(os.path.realpath(__file__))
     cmd = ("%s/pbdagcon -t %d -c 1 -m 1  %s" % (script_dir, t, m5)).split()
-    
+    ## hard coded threshold to prevent trimming too many bases
+    if(t > 100):
+        return None
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     ## if in 5 sec, pbdagcon does not finish, trim 1 base and recursively run it
     poll_seconds = 0.25
@@ -287,7 +289,10 @@ def consensus_blastn(record, alnFile, copy_num_thre, len_diff_thre, tmp_folder, 
         with open(tmpname + '.m5', 'w') as outH:
             outH.write(post_processing(alignments["alignments"]))
         consensus = pbdagcon(tmpname+'.m5', 0)
-
+        if consensus == None:
+            sys.stderr.write("PBDAGCON failed (trimmed more than 100 bases)!\n")
+            tmp = subprocess.check_output("rm  %s*" % (tmpname), shell = True)
+            return None
         ## run iteratively
         #----------------------------------------
         # write consensus seq 0
@@ -312,6 +317,10 @@ def consensus_blastn(record, alnFile, copy_num_thre, len_diff_thre, tmp_folder, 
                     outH.write(stdout)
                 consensus_p = consensus
                 consensus = pbdagcon(tmpRef_iter_m5, 0)
+                if consensus == None:
+                    sys.stderr.write("PBDAGCON failed (trimmed more than 100 bases)!\n")
+                    tmp = subprocess.check_output("rm  %s*" % (tmpname), shell = True)
+                    return None
                 with open(tmpRef_iter_next, 'w') as outH:
                     outH.write(consensus)
                 # update delta
@@ -373,6 +382,10 @@ def consensus_graphmap(record, alnFile, copy_num_thre, len_diff_thre, tmp_folder
         with open(tmpname + '.m5', 'w') as outH:
             outH.write(post_processing(alignments["alignments"]))
         consensus = pbdagcon(tmpname + '.m5', 0)
+        if consensus == None:
+            sys.stderr.write("PBDAGCON failed (trimmed more than 100 bases)!\n")
+            tmp = subprocess.check_output("rm  %s*" % (tmpname), shell = True)
+            return None
 
         ## run iteratively
         #----------------------------------------
@@ -407,9 +420,10 @@ def consensus_graphmap(record, alnFile, copy_num_thre, len_diff_thre, tmp_folder
                 consensus = pbdagcon(tmpRef_iter_m5, 0)
 
                 ## some cases pbdagcon return empty results
-                if not consensus:
-                    break
-
+                if consensus == None:
+                    sys.stderr.write("PBDAGCON failed (trimmed more than 100 bases)!\n")
+                    tmp = subprocess.check_output("rm  %s*" % (tmpname), shell = True)
+                    return None
                 with open(tmpRef_iter_next, 'w') as outH:
                     outH.write(consensus)
                 # update delta
