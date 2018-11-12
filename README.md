@@ -4,6 +4,16 @@ Description:
 ------
 This repository contains the code for analyzing INC-Seq data (http://biorxiv.org/content/early/2016/01/27/038042). The full datasets have been deposited into ENA (http://www.ebi.ac.uk/ena/data/view/PRJEB12294).
 
+Note:
+-------
+The PBDAGCON software attached with this pipeline was compiled on Ubuntu 16.04. If there is any issue with the consensus building, please recompile PBDAGCON. On Debian systems, this can be done by running:
+
+```sh
+rm -i utils/pbdagcon
+sudo apt install pbdagcon
+ln -s `which pbdagcon` utils/
+```
+
 Requirements:
 --------------
  - Python 2.7
