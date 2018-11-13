@@ -16,9 +16,9 @@ ln -s `which pbdagcon` utils/
 
 Requirements:
 --------------
- - Python 2.7
- - Biopython 1.65
- - BLAST 2.2.28+
+ - Python > 3.6
+ - Biopython > 1.65
+ - BLAST+ > 2.2.28
 
 Usage:
 --------------
