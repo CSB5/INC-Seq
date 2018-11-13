@@ -10,9 +10,11 @@ Due to the broken code of PBDAGCON, I created this branch aiming to replace it w
 
 Requirements:
 --------------
- - Python > 3.6
+ - Python = 3.6
  - Biopython > 1.65
  - BLAST+ > 2.2.28
+ - racon v1.3.1
+ - minimap2 v2.14-r883
 
 Usage:
 --------------
