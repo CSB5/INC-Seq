@@ -43,6 +43,15 @@ def graphmap(query, ref):
 
     return stdout
 
+def minimap2(query, ref):
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+    ## run minimap2
+    cmd = ["minimap2", "-x", "map-ont", ref, query]
+    minimapout = subprocess.Popen(cmd, stdout= subprocess.PIPE, stderr=subprocess.DEVNULL)
+    stdout, stderr = minimapout.communicate()
+    minimapout.stdout.close()
+
+    return stdout
 
 def marginAlign(query, ref, tmpName):
     script_dir = os.path.dirname(os.path.realpath(__file__))
@@ -56,8 +65,14 @@ def marginAlign(query, ref, tmpName):
     tmp = subprocess.check_output("rm -rf %s %s" %(tmpName+".jobTree", tmpName+".sam"), shell = True)
     return stdout
 
+def racon(ref, paf, query):
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+    ## run minimap2
+    cmd = ["racon", query, paf, ref]
+    raconout = subprocess.check_output(" ".join(cmd), shell = True, stderr=subprocess.DEVNULL)
 
-
+    return raconout
+    
 def poa(fasta, tmpName, seqHeader):
     script_dir = os.path.dirname(os.path.realpath(__file__))
     cmd = [script_dir+"/poa", "-do_global", "-do_progressive",

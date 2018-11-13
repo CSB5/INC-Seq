@@ -6,13 +6,7 @@ This repository contains the code for analyzing INC-Seq data (http://biorxiv.org
 
 Note:
 -------
-The PBDAGCON software attached with this pipeline was compiled on Ubuntu 16.04. If there is any issue with the consensus building, please recompile PBDAGCON. On Debian systems, this can be done by running:
-
-```sh
-rm -i utils/pbdagcon
-sudo apt install pbdagcon
-ln -s `which pbdagcon` utils/
-```
+Due to the broken code of PBDAGCON, I created this branch aiming to replace it with minimap + racon. Blastn is used only for finding anchors, while minimap2 + racon is used to construct consensus.
 
 Requirements:
 --------------

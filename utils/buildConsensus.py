@@ -8,7 +8,7 @@ import time
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
-from aligners import *
+from utils.aligners import *
 
 # ## for pbdagcon
 # ## facilitate our cluster setup
@@ -20,7 +20,7 @@ from aligners import *
 
 ################################find primer location (not in use) ############################
 def locate_primer(primer_fwd, primer_rev, consensus, tmp_folder, seqlen):
-    tmpname = tmp_folder + hashlib.md5("primer").hexdigest() + ".tmp"
+    tmpname = tmp_folder + hashlib.md5("primer".encode('utf-8')).hexdigest() + ".tmp"
     tmpRef = tmpname + ".ref.fasta"
     tmpQ = tmpname + ".q.fasta"
     blastOutFMT = '6 sseqid sstart send slen qstart qend qlen evalue score length nident mismatch gaps qseqid'
@@ -38,7 +38,7 @@ def locate_primer(primer_fwd, primer_rev, consensus, tmp_folder, seqlen):
         SeqIO.write(qrecord, q_handle, "fasta")
     
     stdout = blastn(tmpQ, tmpRef, 4, blastOutFMT,
-                    1, 0.3, False)
+                    1, 0.3, False).decode('utf-8')
     alns = stdout.strip().split("\n")
     aln = ''
     lowest_e = 1
@@ -73,20 +73,24 @@ def median(mylist):
     if length == 0:
         return 0
     if not length % 2:
-        return (sorts[length / 2] + sorts[length / 2 - 1]) / 2.0
-    return sorts[length / 2]
+        return (sorts[length // 2] + sorts[length // 2 - 1]) / 2.0
+    return sorts[length // 2]
 
-def get_errors(alignments):
+def get_errors(alignments, paf=False):
     errors = 0
     count = 0
     if alignments == '\n' or alignments == '':
-        return sys.maxint
+        return sys.maxsize
     for l in alignments.split('\n'):
         if l != '': 
             count += 1
             fields = l.split()
-            errors += sum([ int(x) for x in fields[12:15] ])
-    return errors*1.0/count
+            if paf:
+                errors += int(fields[10]) - int(fields[9])
+            else:                    
+                errors += sum([ int(x) for x in fields[12:15] ])
+            
+    return errors/count
 
 def post_processing(alignments):
     ## remove the self-alignments
@@ -166,7 +170,7 @@ def segment_filters(alnFile, copy_num_thre, len_diff_thre):
         return None
 
     aln = []    
-    for line in alnFile.strip().split('\n'):
+    for line in alnFile.decode('utf-8').strip().split('\n'):
         fields = line.split()
         aln += [ fields[1:] ]
 
@@ -219,7 +223,7 @@ def pbdagcon(m5, t):
 
     stdout, stderr = proc.communicate()
     if proc.returncode != 0:
-        stdout = pbdagcon(m5, t+1)
+        stdout = pbdagcon(m5, t+1).decode('utf-8')
     return stdout
     
 def segmentize(record, alnFile, copy_num_thre, len_diff_thre, outH):
@@ -243,7 +247,7 @@ def consensus_blastn(record, alnFile, copy_num_thre, len_diff_thre, tmp_folder, 
     
     #### split into segments and call consensus
     ## split this read into a multiple fasta file
-    tmpname = tmp_folder + hashlib.md5(record.id).hexdigest() + ".tmp"
+    tmpname = tmp_folder + hashlib.md5(record.id.encode('utf-8')).hexdigest() + ".tmp"
     tmpRef = tmpname + ".ref.fasta"
     tmpQ = tmpname + ".q.fasta"
 
@@ -252,7 +256,7 @@ def consensus_blastn(record, alnFile, copy_num_thre, len_diff_thre, tmp_folder, 
     ## three fields added to facilate convertion to blasr m5 format
     blastOutFMT = '6 sseqid sstart send slen qstart qend qlen evalue score length nident mismatch gaps sseq qseq qseqid'
     ## try using each subread as the backbone
-    alignments = {"alignments":'\n',"num":0, "errors":sys.maxint}
+    alignments = {"alignments":'\n',"num":0, "errors":sys.maxsize}
     subReads = []
 
     counter = 0
@@ -269,7 +273,7 @@ def consensus_blastn(record, alnFile, copy_num_thre, len_diff_thre, tmp_folder, 
         q_handle = open(tmpQ, 'w')
         SeqIO.write(subRead, q_handle, "fasta")
         q_handle.close()
-        stdout = blastn(tmpQ, tmpRef, None, blastOutFMT, seg_num, seg_cov, True)
+        stdout = blastn(tmpQ, tmpRef, None, blastOutFMT, seg_num, seg_cov, True).decode('utf-8')
         num = stdout.count('\n') - 1
         errors = get_errors(stdout)
         if num > alignments["num"]:
@@ -310,7 +314,7 @@ def consensus_blastn(record, alnFile, copy_num_thre, len_diff_thre, tmp_folder, 
                 iteration += 1
                 with open(tmpRef_iter, 'w') as outH:
                     outH.write(consensus)
-                stdout = blastn(tmpRef_iter, tmpRef, None, blastOutFMT, seg_num, seg_cov, True)
+                stdout = blastn(tmpRef_iter, tmpRef, None, blastOutFMT, seg_num, seg_cov, True).decode('utf-8')
                 copy_num = stdout.count('\n')
                 ## write new m5
                 with open(tmpRef_iter_m5, 'w') as outH:
@@ -327,7 +331,7 @@ def consensus_blastn(record, alnFile, copy_num_thre, len_diff_thre, tmp_folder, 
                 ## check the % identity between two iterations
                 tmp = blastn(tmpRef_iter, tmpRef_iter_next, None, blastOutFMT, 1, seg_cov, False)
                 tmp_len, tmp_iden = tmp.strip().split()[9:11]
-                delta = 1-float(tmp_iden)/int(tmp_len)
+                delta = 1-float(tmp_iden)//int(tmp_len)
                 sys.stderr.write("Delta: %f\n" %(delta))
             #----------------------------------------
             consensus = consensus_p
@@ -338,7 +342,64 @@ def consensus_blastn(record, alnFile, copy_num_thre, len_diff_thre, tmp_folder, 
         tmp = subprocess.check_output("rm  %s*" % (tmpname), shell = True)
         return None
 
+def consensus_minimap2_racon(record, alnFile, copy_num_thre, len_diff_thre, tmp_folder, iterative):
+    seg_coordinates = segment_filters(alnFile, copy_num_thre, len_diff_thre)
+    if not seg_coordinates:
+        return None 
 
+    #### split into segments and call consensus
+    ## split this read into a multiple fasta file
+    tmpname = tmp_folder + hashlib.md5(record.id.encode('utf-8')).hexdigest() + ".tmp"
+    tmpRef = tmpname + ".ref.fasta"
+    tmpQ = tmpname + ".q.fasta"
+
+    ## try using each subread as the backbone, select the backbone with minimal errors
+    alignments = {"alignments":'\n',"errors":sys.maxsize}
+    subReads = []
+
+    counter = 0
+    # write queries (all the subreads)
+    q_handle = open(tmpQ, 'w')
+    for s, e in seg_coordinates:
+        counter += 1
+        subRead = SeqRecord(record.seq[s-1:e], record.id+'_'+str(counter), description="")
+        subReads.append(subRead)
+        SeqIO.write(subRead, q_handle, "fasta")
+    q_handle.close()
+
+    for subRead in subReads:
+        ref_handle = open(tmpRef, 'w')
+        SeqIO.write(subRead, ref_handle, "fasta")
+        ref_handle.close()
+        stdout = minimap2(tmpQ, tmpRef).decode('utf-8')
+        errors = get_errors(stdout, paf=True)
+        if errors < alignments["errors"]:
+            alignments["errors"] = errors
+            alignments["alignments"] = stdout
+            alignments["ref"] = subRead
+        ## remove index
+        tmp = subprocess.check_output("rm  %s*" % (tmpRef), shell = True)
+
+    ## write final ref and query
+    ref_handle = open(tmpRef, 'w')
+    SeqIO.write(alignments["ref"], ref_handle, "fasta")
+    ref_handle.close()
+    q_handle = open(tmpQ, 'w')
+    for subRead in subReads:
+        if subRead.id != alignments["ref"].id:
+            SeqIO.write(subRead, q_handle, "fasta")
+    q_handle.close()
+
+    copy_num = alignments["alignments"].count("\n")
+    if copy_num >= copy_num_thre:
+        with open(tmpname + '.paf', 'w') as outH:
+            outH.write(post_processing(alignments["alignments"]))
+        consensus = racon(tmpRef, tmpname + '.paf', tmpQ).decode('utf-8')
+        tmp = subprocess.check_output("rm  %s*" % (tmpname), shell = True)
+        return (consensus, copy_num)
+        if not consensus:
+            sys.stderr.write("Racon failed!\n")
+            return None
 
 def consensus_graphmap(record, alnFile, copy_num_thre, len_diff_thre, tmp_folder, seg_cov, iterative):
     seg_coordinates = segment_filters(alnFile, copy_num_thre, len_diff_thre)
@@ -347,12 +408,12 @@ def consensus_graphmap(record, alnFile, copy_num_thre, len_diff_thre, tmp_folder
 
     #### split into segments and call consensus
     ## split this read into a multiple fasta file
-    tmpname = tmp_folder + hashlib.md5(record.id).hexdigest() + ".tmp"
+    tmpname = tmp_folder + hashlib.md5(record.id.encode('utf-8')).hexdigest() + ".tmp"
     tmpRef = tmpname + ".ref.fasta"
     tmpQ = tmpname + ".q.fasta"
 
     ## try using each subread as the backbone, select the backbone with minimal errors
-    alignments = {"alignments":'\n',"errors":sys.maxint}
+    alignments = {"alignments":'\n',"errors":sys.maxsize}
     subReads = []
 
     counter = 0
@@ -369,7 +430,7 @@ def consensus_graphmap(record, alnFile, copy_num_thre, len_diff_thre, tmp_folder
         ref_handle = open(tmpRef, 'w')
         SeqIO.write(subRead, ref_handle, "fasta")
         ref_handle.close()
-        stdout = graphmap(tmpQ, tmpRef)
+        stdout = graphmap(tmpQ, tmpRef).decode('utf-8')
         errors = get_errors(stdout)
         if errors < alignments["errors"]:
             alignments["errors"] = errors
@@ -405,7 +466,7 @@ def consensus_graphmap(record, alnFile, copy_num_thre, len_diff_thre, tmp_folder
                 iteration += 1
                 with open(tmpRef_iter, 'w') as outH:
                     outH.write(consensus)
-                stdout = graphmap(tmpQ, tmpRef_iter)
+                stdout = graphmap(tmpQ, tmpRef_iter).decode('utf-8')
                 ## remove index
                 tmp = subprocess.check_output("rm  %s.*" % (tmpRef_iter), shell = True)
                 copy_num_p = copy_num
@@ -431,7 +492,7 @@ def consensus_graphmap(record, alnFile, copy_num_thre, len_diff_thre, tmp_folder
                 blastOutFMT = '6 sseqid sstart send slen qstart qend qlen evalue score length nident mismatch gaps sseq qseq qseqid'
                 tmp = blastn(tmpRef_iter, tmpRef_iter_next, None, blastOutFMT, 1, seg_cov, False)
                 tmp_len, tmp_iden = tmp.strip().split()[9:11]
-                delta = 1-float(tmp_iden)/int(tmp_len)
+                delta = 1-float(tmp_iden)//int(tmp_len)
                 sys.stderr.write("Delta: %f\n" %(delta))
             #----------------------------------------
             consensus = consensus_p
@@ -452,7 +513,7 @@ def consensus_poa(record, alnFile, copy_num_thre, len_diff_thre, tmp_folder):
 
     #### split into segments and call consensus
     ## split this read into a multiple fasta file
-    tmpname = tmp_folder + hashlib.md5(record.id).hexdigest() + ".tmp"
+    tmpname = tmp_folder + hashlib.md5(record.id.encode('utf-8')).hexdigest() + ".tmp"
     tmpFASTA = tmpname + ".fasta"
 
     counter = 0
@@ -477,12 +538,12 @@ def consensus_marginAlign(record, alnFile, copy_num_thre, len_diff_thre, tmp_fol
 
     #### split into segments and call consensus
     ## split this read into a multiple fasta file
-    tmpname = tmp_folder + hashlib.md5(record.id).hexdigest() + ".tmp"
+    tmpname = tmp_folder + hashlib.md5(record.id.encode('utf-8')).hexdigest() + ".tmp"
     tmpRef = tmpname + ".ref.fasta"
     tmpQ = tmpname + ".q.fastq"
 
     ## try using each subread as the backbone, select the backbone with minimal errors
-    alignments = {"alignments":'\n',"errors":sys.maxint}
+    alignments = {"alignments":'\n',"errors":sys.maxsize}
     subReads = []
 
     counter = 0
@@ -502,7 +563,7 @@ def consensus_marginAlign(record, alnFile, copy_num_thre, len_diff_thre, tmp_fol
         ref_handle = open(tmpRef, 'w')
         SeqIO.write(subRead, ref_handle, "fasta")
         ref_handle.close()
-        stdout = graphmap(tmpQ, tmpRef)
+        stdout = graphmap(tmpQ, tmpRef).decode('utf-8')
         errors = get_errors(stdout)
         if errors < alignments["errors"]:
             alignments["errors"] = errors
@@ -516,7 +577,7 @@ def consensus_marginAlign(record, alnFile, copy_num_thre, len_diff_thre, tmp_fol
     ref_handle = open(tmpRef, 'w')
     SeqIO.write(best_backbone, ref_handle, "fasta")
     ref_handle.close()
-    stdout = marginAlign(tmpQ, tmpRef, tmpname+"margin")
+    stdout = marginAlign(tmpQ, tmpRef, tmpname+"margin").decode('utf-8')
     ##errors = get_errors(stdout)
     ##alignments["errors"] = errors
     alignments["alignments"] = stdout
@@ -544,7 +605,7 @@ def consensus_marginAlign(record, alnFile, copy_num_thre, len_diff_thre, tmp_fol
                 iteration += 1
                 with open(tmpRef_iter, 'w') as outH:
                     outH.write(consensus)
-                stdout = marginAlign(tmpQ, tmpRef_iter, tmpname+"margin")
+                stdout = marginAlign(tmpQ, tmpRef_iter, tmpname+"margin").decode('utf-8')
                 copy_num = stdout.count('\n')
                 ## write new m5
                 with open(tmpRef_iter_m5, 'w') as outH:
@@ -563,7 +624,7 @@ def consensus_marginAlign(record, alnFile, copy_num_thre, len_diff_thre, tmp_fol
                 blastOutFMT = '6 sseqid sstart send slen qstart qend qlen evalue score length nident mismatch gaps sseq qseq qseqid'
                 tmp = blastn(tmpRef_iter, tmpRef_iter_next, None, blastOutFMT, 1, seg_cov, False)
                 tmp_len, tmp_iden = tmp.strip().split()[9:11]
-                delta = 1-float(tmp_iden)/int(tmp_len)
+                delta = 1-float(tmp_iden)//int(tmp_len)
                 sys.stderr.write("Delta: %f\n" %(delta))
             #----------------------------------------
             consensus = consensus_p

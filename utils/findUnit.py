@@ -5,7 +5,7 @@ import sys
 import hashlib
 
 import subprocess
-from aligners import *
+from utils.aligners import *
 
 from Bio import SeqIO
 from Bio.Seq import Seq
@@ -28,7 +28,7 @@ def best_aln(aln):
     return best_alignment
 
 def find_unit_blastn(record, ref_anchor, tmp_folder, seqlen, query_seg_step, query_len, anchor_cov):
-    tmpname = tmp_folder + hashlib.md5(record.id).hexdigest() + ".tmp"
+    tmpname = tmp_folder + hashlib.md5(record.id.encode('utf-8')).hexdigest() + ".tmp"
     tmpRef = tmpname + ".ref.fasta"
     tmpQ = tmpname + ".q.fasta"
     blastOutFMT = '6 sseqid sstart send slen qstart qend qlen evalue score length nident mismatch gaps'
@@ -54,12 +54,12 @@ def find_unit_blastn(record, ref_anchor, tmp_folder, seqlen, query_seg_step, que
                                     description= "")
                 SeqIO.write(qrecord, q_handle, "fasta")
             stdout = blastn(tmpQ, tmpRef, None, blastOutFMT,
-                            seqlen/query_len + 1, anchor_cov, False)
+                            seqlen//query_len + 1, anchor_cov, False)
         alignments['number'] = max(stdout.count('\n') - 1,0)
         alignments['alignments'] = stdout
     else:
         ## try different anchors
-        starts = xrange(0, seqlen/2, query_seg_step)
+        starts = range(0, seqlen//2, query_seg_step)
         
         for start in starts:
             ## write the query seq
@@ -69,8 +69,8 @@ def find_unit_blastn(record, ref_anchor, tmp_folder, seqlen, query_seg_step, que
                                     description= "")
                 SeqIO.write(qrecord, q_handle, "fasta")
             stdout = blastn(tmpQ, tmpRef, None, blastOutFMT,
-                            seqlen/query_len + 1, anchor_cov, False)
-            num_alignments = stdout.count('\n') - 1 
+                            seqlen//query_len + 1, anchor_cov, False)
+            num_alignments = stdout.decode('utf-8').count('\n') - 1 
             if num_alignments > alignments['number']:
                 alignments['number'] = num_alignments
                 alignments['alignments'] = stdout

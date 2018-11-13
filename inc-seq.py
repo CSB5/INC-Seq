@@ -26,6 +26,10 @@ def callBuildConsensus(aligner, record, aln, copy_num_thre, len_diff_thre, tmp_f
         consensus = buildConsensus.consensus_graphmap(record, aln, copy_num_thre,
                                                       len_diff_thre, tmp_folder,
                                                       seg_cov, iterative)
+    elif aligner == "minimap2":
+        consensus = buildConsensus.consensus_minimap2_racon(record, aln, copy_num_thre,
+                                                      len_diff_thre, tmp_folder,
+                                                      iterative)
     elif aligner == "poa":
         consensus = buildConsensus.consensus_poa(record, aln, copy_num_thre,
                                                  len_diff_thre, tmp_folder)
@@ -47,9 +51,9 @@ def main(arguments):
                         dest = "outFile",
                         default=sys.stdout, type=argparse.FileType('w'))
     parser.add_argument("-a", "--aligner",
-                        default='blastn',
+                        default='minimap2',
                         dest="aligner",
-                        help="The aligner used (blastn, graphmap, poa) [Default: blastn]")
+                        help="The aligner used (minimap2+racon, blastn, graphmap, poa) [Default: minimap2+racon]")
     parser.add_argument("-m", "--minReadLength",
                         default=2000,
                         dest="minRL",
@@ -122,7 +126,7 @@ def main(arguments):
             sys.stderr.write("Failed to pass length filter!\n")
         else:
             #### find units
-            if args.aligner == "blastn" or args.aligner == "graphmap" or args.aligner =="poa" or args.aligner == "marginAlign": ## FIXME graphmap implementation
+            if args.aligner in ["blastn", "graphmap", "marginAlign", "poa", "minimap2" ]: ## FIXME graphmap implementation
                 if args.anchor_seq:
                     ## anchor sequence provided, run with INC-Seq2 mode
                     aln = findUnit.find_unit_blastn(record, args.anchor_seq, tmp_folder, seqlen,
