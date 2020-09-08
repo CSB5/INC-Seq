@@ -275,13 +275,13 @@ def consensus_blastn(record, alnFile, copy_num_thre, len_diff_thre, tmp_folder, 
         if num > alignments["num"]:
             # prefer more alignments
             alignments["num"] = num
-            alignments["error"] = errors
+            alignments["errors"] = errors
             alignments["alignments"] = stdout
         elif num == alignments["num"]:
             # for the same number of alignments, prefer the one with lower error rates
             if errors < alignments["errors"]:
                     alignments["num"] = num
-                    alignments["error"] = errors
+                    alignments["errors"] = errors
                     alignments["alignments"] = stdout              
         
     copy_num = alignments["alignments"].count("\n")
